@@ -387,11 +387,9 @@ rd_kafka_sasl_scram_build_client_final_message_wo_proof (
          *            channel-binding "," nonce [","
          *            extensions]
          */
-        out->size = strlen("c=,r=") + strlen(attr_c) +
-                state->cnonce.size + strlen(snonce);
+        out->size = strlen("c=,r=") + strlen(attr_c) + strlen(snonce);
         out->ptr = rd_malloc(out->size+1);
-        rd_snprintf(out->ptr, out->size+1, "c=%s,r=%.*s%s",
-                    attr_c, (int)state->cnonce.size, state->cnonce.ptr, snonce);
+        rd_snprintf(out->ptr, out->size+1, "c=%s,r=%s", attr_c, snonce);
 }
 
 
