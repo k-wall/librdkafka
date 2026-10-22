@@ -982,11 +982,50 @@ static int unittest_scram_safe (void) {
 }
 
 
+/**
+ * @brief Verify that the client-final-message r= field uses only the server
+ *        nonce (which already contains the client nonce as a prefix per
+ *        RFC 5802), and does not incorrectly prepend the client nonce again.
+ */
+static int unittest_scram_client_final_nonce (void) {
+        struct rd_kafka_sasl_scram_state state = RD_ZERO_INIT;
+        const char *cnonce_str = "clientnonce";
+        /* server nonce = client nonce + server-appended part, per RFC 5802 */
+        const char *snonce = "clientnonceSERVERPART";
+        rd_chariov_t out = RD_ZERO_INIT;
+        const char *r_field;
+
+        state.cnonce.ptr  = (char *)cnonce_str;
+        state.cnonce.size = strlen(cnonce_str);
+
+        rd_kafka_sasl_scram_build_client_final_message_wo_proof(
+                &state, snonce, &out);
+
+        /* r= must equal snonce exactly, not cnonce+snonce */
+        r_field = strstr(out.ptr, "r=");
+        RD_UT_ASSERT(r_field != NULL, "No r= field in client-final-message: %s",
+                     out.ptr);
+        RD_UT_ASSERT(!strncmp(r_field + 2, snonce, strlen(snonce)),
+                     "r= field is %s, expected r=%s (client nonce must not be "
+                     "prepended since server nonce already contains it)",
+                     r_field, snonce);
+        RD_UT_ASSERT(strlen(r_field + 2) == strlen(snonce),
+                     "r= field length %d, expected %d: client nonce was "
+                     "prepended to server nonce",
+                     (int)strlen(r_field + 2), (int)strlen(snonce));
+
+        rd_free(out.ptr);
+
+        RD_UT_PASS();
+}
+
+
 int unittest_scram (void) {
         int fails = 0;
 
         fails += unittest_scram_nonce();
         fails += unittest_scram_safe();
+        fails += unittest_scram_client_final_nonce();
 
         return fails;
 }
